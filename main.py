@@ -341,8 +341,6 @@ class FlappyBird:
         for c in range(channels):
             self.frame[y1:y2, x1:x2, c] = (alpha * image[y1o:y2o, x1o:x2o, c] + alpha_inv * self.frame[y1:y2, x1:x2, c])
 
-    # The following function was written by Alex Rodrigues on StackOverflow
-    # rotating an image by a specified angle using numpy
     def rotate_image(self, image: np.ndarray, angle: int) -> np.ndarray:
         """
         @author: Alex Rodrigues, StackOverflow
