@@ -21,9 +21,10 @@ To run this project,
 5. Use <kbd>Esc</kbd> to close the game.
 
 ## Future Improvements
-- [ ] Fix bugs in pitch angle estimation, sometimes theres a double jump because of it.
-- [ ] Falling animation for once the bird has crashed.
-- [ ] Make the base move continuously.
+- [x] ~~Fix bugs in pitch angle estimation, sometimes theres a double jump because of it.~~
+- [x] ~~Falling animation for once the bird has crashed.~~
+- [x] ~~Make the base move continuously.~~
+- [ ] Implement high score system.
 
 ## Resources
 [FlapPyBird, a Flappy Bird implementation in Python](https://github.com/sourabhv/FlapPyBird)\

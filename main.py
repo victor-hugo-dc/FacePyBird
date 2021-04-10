@@ -13,11 +13,21 @@ class FlappyBird:
         self.players: list = self.get_players()
         self.message: np.ndarray = cv2.resize(cv2.imread('./sprites/message.png', -1), (135, 180), interpolation = cv2.INTER_AREA)
         self.gameover: np.ndarray = cv2.resize(cv2.imread('./sprites/gameover.png', -1), (180, 36), interpolation = cv2.INTER_AREA)
+        #self.gameover: np.ndarray = cv2.imread('./sprites/scoreboard.png', -1)
 
         self.player_cycle: cycle = cycle([0, 1, 2, 1])
+        self.player_index: int = 0
+        self.player_vel_y: int = -9
+        self.player_max_vel_y: int = 10
+        self.player_acc_y: int = 1
+        self.player_rot: int = 45
+        self.player_vel_rot: int = 3
+        self.player_rot_threshold: int = 20
+        self.visible_rot: int = 20
+        self.falling: bool = True
 
         self.window: str = 'FlapPy Bird OpenCV by @victor-hugo-dc'
-        self.capture: cv2.VideoCapture = cv2.VideoCapture(0)
+        self.capture: cv2.VideoCapture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         self.width: int = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height: int = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
@@ -36,7 +46,10 @@ class FlappyBird:
         base: np.ndarray = cv2.imread('./sprites/base.png', -1)
         base: np.ndarray = cv2.hconcat([base, base])
         self.base: np.ndarray = cv2.cvtColor(base, cv2.COLOR_RGB2RGBA).copy()
+        self.orig_base = self.base.copy()
         self.base_offset: int = self.height - int(self.base.shape[0] // 1.5)
+        self.base_x_offset: int = 10
+        self.base_x: int = 0
         
         self.score: int = 0
 
@@ -44,9 +57,10 @@ class FlappyBird:
         self.max_pitch_angle: float = 12.0
         self.nod_allowed: bool = True
         self.nod: bool = False
+        self.nod_time: datetime = datetime.now()
         self.crashed = False
         self.pipe_time: datetime = datetime.now()
-        self.time_buffer: timedelta = timedelta(seconds=1)
+        self.time_buffer: timedelta = timedelta(seconds=0.2)
         
         self.forehead: list = [self.width // 2, self.height // 3]
         self.nose: list = [self.width // 2, self.height // 2]
@@ -115,8 +129,9 @@ class FlappyBird:
         pitch, _, _ = [math.radians(_) for _ in euler_angles]
         pitch: float = math.degrees(math.asin(math.sin(pitch)))
 
-        if not self.nod_allowed and pitch <= self.min_pitch_angle:
+        if not self.nod_allowed and pitch <= self.min_pitch_angle and datetime.now() - self.nod_time >= self.time_buffer:
             self.nod_allowed = True
+            self.nod_time = datetime.now()
 
         if self.nod_allowed and pitch >= self.max_pitch_angle:
             self.nod_allowed = False
@@ -124,7 +139,8 @@ class FlappyBird:
 
         self.forehead = shape[27]
         self.nose = shape[30]
-        self.x = self.nose[0]
+        if self.falling:
+            self.x = self.nose[0]
 
     def reset_variables(self) -> None:
         """
@@ -135,6 +151,16 @@ class FlappyBird:
         self.score = 0
         self.pipe_time = datetime.now()
         self.pipe_vel_x = -8
+        self.base = self.orig_base.copy()
+        self.player_index = 0
+        self.player_vel_y = -9
+        self.player_max_vel_y = 10
+        self.player_acc_y = 1
+        self.player_rot = 45
+        self.player_vel_rot = 3
+        self.player_rot_threshold = 20
+        self.visible_rot = 20
+        self.falling = True
     
     def add_random_pipe(self) -> None:
         """
@@ -205,14 +231,7 @@ class FlappyBird:
         :return: Whether the program should continue or not.
         :rtype: bool.
         """
-        player_index: int = 0
         loop_iter: int = 0
-        player_vel_y: int = -9
-        player_max_vel_y: int = 10
-        player_acc_y: int = 1
-        player_rot: int = 45
-        player_vel_rot: int = 3
-        player_rot_threshold: int = 20
         player_flap_acc: int = -9
         player_flapped: bool = False
         
@@ -227,38 +246,37 @@ class FlappyBird:
 
             if self.nod:
                 self.nod = False
-                player_vel_y = player_flap_acc
+                self.player_vel_y = player_flap_acc
                 player_flapped = True
                 playsound.playsound(self.wing, False)
 
             self.display_pipes()
             
             if (loop_iter + 1) % 3 == 0:
-                player_index = next(self.player_cycle)
+                self.player_index = next(self.player_cycle)
 
             loop_iter = (loop_iter + 1) % 30
 
-            if player_rot > -90:
-                player_rot -= player_vel_rot
+            if self.player_rot > -90:
+                self.player_rot -= self.player_vel_rot
             
-            if player_vel_y < player_max_vel_y and not player_flapped:
-                player_vel_y += player_acc_y
+            if self.player_vel_y < self.player_max_vel_y and not player_flapped:
+                self.player_vel_y += self.player_acc_y
 
             if player_flapped:
                 player_flapped = False
-                player_rot = 45
+                self.player_rot = 45
             
-            self.y += player_vel_y
+            self.y += self.player_vel_y
             self.display_score(*self.forehead)
             
-            visible_rot = player_rot_threshold
-            if player_rot <= player_rot_threshold:
-                visible_rot = player_rot
+            self.visible_rot = self.player_rot_threshold
+            if self.player_rot <= self.player_rot_threshold:
+                self.visible_rot = self.player_rot
             
-            player: np.ndarray = self.rotate_image(self.players[player_index], visible_rot)
             x: int = self.nose[0] - (self.player_width // 2)
             y: int = self.y - (self.player_height // 2)
-            self.overlay(player, x, y)
+            self.overlay(self.current_player(), x, y)
             cv2.imshow(self.window, self.frame)
 
         return False
@@ -278,9 +296,31 @@ class FlappyBird:
             self.update_frame()
             x: int = self.forehead[0] - (self.gameover_width // 2)
             y: int = self.forehead[1] - (self.gameover_height // 2)
+            self.display_pipes()
             self.overlay(self.gameover, x, y)
             self.display_score(*self.nose)
-            self.display_pipes()
+            
+            if self.falling:
+                if self.player_rot > -90:
+                    self.player_rot -= self.player_vel_rot
+                
+                if self.player_vel_y < self.player_max_vel_y:
+                    self.player_vel_y += self.player_acc_y
+                
+                self.y += self.player_vel_y
+                
+                self.visible_rot = self.player_rot_threshold
+                if self.player_rot <= self.player_rot_threshold:
+                    self.visible_rot = self.player_rot
+            
+            x: int = self.x - (self.player_width // 2)
+            y: int = self.y - (self.player_height // 2)
+
+            if self.y + (self.player_height // 2) >= self.base_offset:
+                y = self.base_offset - self.player_height
+                self.falling = False
+            
+            self.overlay(self.current_player(), x, y)
             cv2.imshow(self.window, self.frame)
 
             if self.nod:
@@ -314,7 +354,13 @@ class FlappyBird:
         if self.pipes and self.pipes[0]['x'] < -self.pipe_width:
             self.pipes.pop(0)
         
-        self.overlay(self.base, 0, self.base_offset)
+        if self.base_x + self.base.shape[1] <= self.width + self.base_x_offset:
+            self.base = self.base[:,-self.base_x:,:]
+            self.base = cv2.hconcat([self.base, self.orig_base])
+            self.base_x = 0
+        
+        self.overlay(self.base, self.base_x, self.base_offset)
+        self.base_x += self.pipe_vel_x
 
     def overlay(self, image: np.ndarray, x: int, y: int) -> None:
         """
@@ -340,22 +386,18 @@ class FlappyBird:
 
         for c in range(channels):
             self.frame[y1:y2, x1:x2, c] = (alpha * image[y1o:y2o, x1o:x2o, c] + alpha_inv * self.frame[y1:y2, x1:x2, c])
-
-    def rotate_image(self, image: np.ndarray, angle: int) -> np.ndarray:
+    
+    def current_player(self) -> np.ndarray:
         """
-        @author: Alex Rodrigues, StackOverflow
-        Rotates the image by a specified angle.
-        :param image: Image to be rotated.
-        :type image: NumPy array (np.ndarray).
-        :param angle: The angle to rotate the image by.
-        :type angle: Int.
-        :return: Rotated image.
+        Rotates the Flappy Bird image by the visible rotation angle.
+        :return: Rotated player image.
         :rtype: NumPy array (np.ndarray).
         """
-        center: tuple = tuple(np.array(image.shape[1::-1]) / 2)
-        rot_mat: np.ndarray = cv2.getRotationMatrix2D(center, angle, 1.0)
-        result: np.ndarray = cv2.warpAffine(image, rot_mat, image.shape[1::-1], flags=cv2.INTER_LINEAR)
-        return result
+        player: np.ndarray = self.players[self.player_index]
+        center: tuple = tuple(np.array(player.shape[1::-1]) / 2)
+        rot_mat: np.ndarray = cv2.getRotationMatrix2D(center, self.visible_rot, 1.0)
+        player = cv2.warpAffine(player, rot_mat, player.shape[1::-1], flags=cv2.INTER_LINEAR)
+        return player
 
     def display_score(self, x: int, y: int) -> None:
         """
