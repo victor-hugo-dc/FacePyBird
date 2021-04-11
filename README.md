@@ -24,7 +24,7 @@ To run this project,
 - [x] ~~Fix bugs in pitch angle estimation, sometimes theres a double jump because of it.~~
 - [x] ~~Falling animation for once the bird has crashed.~~
 - [x] ~~Make the base move continuously.~~
-- [ ] Implement high score system.
+- [x] ~~Implement high score system.~~
 
 ## Resources
 [FlapPyBird, a Flappy Bird implementation in Python](https://github.com/sourabhv/FlapPyBird)\

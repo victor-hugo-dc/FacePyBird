@@ -12,9 +12,14 @@ class FlappyBird:
         self.numbers: list = [cv2.imread(f'./sprites/{i}.png', -1) for i in range(10)]
         self.players: list = self.get_players()
         self.message: np.ndarray = cv2.resize(cv2.imread('./sprites/message.png', -1), (135, 180), interpolation = cv2.INTER_AREA)
-        self.gameover: np.ndarray = cv2.resize(cv2.imread('./sprites/gameover.png', -1), (180, 36), interpolation = cv2.INTER_AREA)
-        #self.gameover: np.ndarray = cv2.imread('./sprites/scoreboard.png', -1)
-
+        self.gameover_orig: np.ndarray = cv2.imread('./sprites/scoreboard.png', -1) #30, 110
+        self.gameover: np.ndarray = self.gameover_orig.copy()
+        self.bronze: np.ndarray = cv2.resize(cv2.imread('./sprites/Bronze.png', -1), (50, 50), interpolation = cv2.INTER_AREA)
+        self.silver: np.ndarray = cv2.resize(cv2.imread('./sprites/Silver.png', -1), (50, 50), interpolation = cv2.INTER_AREA)
+        self.gold: np.ndarray = cv2.resize(cv2.imread('./sprites/Gold.png', -1), (50, 50), interpolation = cv2.INTER_AREA)
+        self.platinum: np.ndarray = cv2.resize(cv2.imread('./sprites/Platinum.png', -1), (50, 50), interpolation = cv2.INTER_AREA)
+        self.new: np.ndarray = cv2.resize(cv2.cvtColor(cv2.imread('./sprites/new.png', -1), cv2.COLOR_RGB2RGBA).copy(), (0, 0), fx = 0.6, fy = 0.6)
+        
         self.player_cycle: cycle = cycle([0, 1, 2, 1])
         self.player_index: int = 0
         self.player_vel_y: int = -9
@@ -30,8 +35,9 @@ class FlappyBird:
         self.capture: cv2.VideoCapture = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         self.width: int = int(self.capture.get(cv2.CAP_PROP_FRAME_WIDTH))
         self.height: int = int(self.capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        pipe_dimensions: tuple = (self.width // 9, self.height // 2)
+        #self.out = cv2.VideoWriter('example.avi', cv2.VideoWriter_fourcc('M','J','P','G'), 10, (self.width, self.height))
+
+        pipe_dimensions: tuple = (int(self.width // 9), int(self.height // 2))
         self.lpipe: np.ndarray = cv2.resize(cv2.imread('./sprites/pipe.png', -1), pipe_dimensions, interpolation = cv2.INTER_AREA)
         self.upipe: np.ndarray = cv2.rotate(self.lpipe, cv2.ROTATE_180)
         self.pipes: list = []
@@ -52,6 +58,7 @@ class FlappyBird:
         self.base_x: int = 0
         
         self.score: int = 0
+        self.highscore: int = self.get_high_score()
 
         self.min_pitch_angle: float = 3.0
         self.max_pitch_angle: float = 12.0
@@ -72,7 +79,7 @@ class FlappyBird:
         self.wing: str = "./audio/wing.wav"
 
         self.detector: _dlib_pybind11.fhog_object_detector = dlib.get_frontal_face_detector()
-        self.predictor: _dlib_pybind11.shape_predictor = dlib.shape_predictor("./models/shape_predictor_68_face_landmarks.dat")
+        self.predictor: _dlib_pybind11.shape_predictor = dlib.shape_predictor("./resources/shape_predictor_68_face_landmarks.dat")
         self.model_points: np.ndarray = np.array([
             (0.0, 0.0, 0.0),            # Nose tip
             (0.0, -330.0, -65.0),       # Chin
@@ -161,6 +168,7 @@ class FlappyBird:
         self.player_rot_threshold = 20
         self.visible_rot = 20
         self.falling = True
+        self.gameover = self.gameover_orig.copy()
     
     def add_random_pipe(self) -> None:
         """
@@ -196,6 +204,17 @@ class FlappyBird:
         bird_3: np.ndarray = cv2.resize(bird_3, dimensions, interpolation = cv2.INTER_AREA)
 
         return [bird_1, bird_2, bird_3]
+    
+    def get_high_score(self) -> int:
+        f: _io.TextIOWrapper = open('./resources/highscore.txt', 'r')
+        score: str = f.read()
+        f.close()
+        return int(score)
+    
+    def update_high_score(self) -> None:
+        f: _io.TextIOWrapper = open('./resources/highscore.txt', 'w')
+        f.write(str(self.highscore))
+        f.close()
 
     def introduction(self) -> bool:
         """
@@ -213,6 +232,7 @@ class FlappyBird:
             y: int = self.nose[1] - (self.message_height // 2)
             self.overlay(self.message, x, y)
             cv2.imshow(self.window, self.frame)
+            #self.out.write(self.frame)
 
             if self.nod:
                 self.x, self.y = self.nose
@@ -278,6 +298,7 @@ class FlappyBird:
             y: int = self.y - (self.player_height // 2)
             self.overlay(self.current_player(), x, y)
             cv2.imshow(self.window, self.frame)
+            #self.out.write(self.frame)
 
         return False
 
@@ -289,6 +310,36 @@ class FlappyBird:
         :return: Whether the program should continue or not.
         :rtype: bool.
         """
+        if self.score >= 40:
+            self.overlay_gameover(self.platinum, 30, 110)
+        elif self.score >= 30:
+            self.overlay_gameover(self.gold, 30, 110)
+        elif self.score >= 20:
+            self.overlay_gameover(self.silver, 30, 110)
+        elif self.score >= 10:
+            self.overlay_gameover(self.bronze, 30, 110)
+        
+        points: list = [int(i) for i in str(self.score)]
+        numbers: list = [cv2.resize(self.numbers[i], (0, 0), fx = 0.6, fy = 0.6) for i in range(10)]
+        total_width: int = np.sum([numbers[i].shape[1] for i in points])
+        x: int = 210 - total_width
+        y: int = 103
+        for i in points:
+            self.overlay_gameover(numbers[i], x, y)
+            x += numbers[i].shape[1]
+
+        if self.score > self.highscore:
+            self.highscore = self.score
+            self.overlay_gameover(self.new, 175 - self.new.shape[1], 130)
+        
+        points: list = [int(i) for i in str(self.highscore)]
+        total_width: int = np.sum([numbers[i].shape[1] for i in points])
+        x: int = 210 - total_width
+        y: int = 145
+        for i in points:
+            self.overlay_gameover(numbers[i], x, y)
+            x += numbers[i].shape[1]
+
         while continue_:
             if cv2.waitKey(20) == 27:
                 break
@@ -298,7 +349,6 @@ class FlappyBird:
             y: int = self.forehead[1] - (self.gameover_height // 2)
             self.display_pipes()
             self.overlay(self.gameover, x, y)
-            self.display_score(*self.nose)
             
             if self.falling:
                 if self.player_rot > -90:
@@ -322,12 +372,38 @@ class FlappyBird:
             
             self.overlay(self.current_player(), x, y)
             cv2.imshow(self.window, self.frame)
+            #self.out.write(self.frame)
 
             if self.nod:
                 self.nod = False
                 return True
         
         return False
+    
+    def overlay_gameover(self, overlay: np.ndarray, x: int, y: int) -> None:
+        """
+        Overlays the given image onto the gameover image at the coordinates (x, y).
+        :param image: Image to be overlayed onto the gameover image.
+        :type image: NumPy array (np.ndarray).
+        :param x: The x-coordinate of the image.
+        :type x: Int.
+        :param y: The y-coordinate of the image.
+        :type y: Int.
+        """
+        y1, y2 = max(0, y), min(self.gameover_height, y + overlay.shape[0])
+        x1, x2 = max(0, x), min(self.gameover_width, x + overlay.shape[1])
+        y1o, y2o = max(0, -y), min(overlay.shape[0], self.gameover_height - y)
+        x1o, x2o = max(0, -x), min(overlay.shape[1], self.gameover_width - x)
+
+        if y1 >= y2 or x1 >= x2 or y1o >= y2o or x1o >= x2o:
+            return
+
+        channels: int = self.gameover.shape[2]
+        alpha: float = overlay[y1o:y2o, x1o:x2o, 3] / 255.0
+        alpha_inv: float = 1.0 - alpha
+
+        for c in range(channels):
+            self.gameover[y1:y2, x1:x2, c] = (alpha * overlay[y1o:y2o, x1o:x2o, c] + alpha_inv * self.gameover[y1:y2, x1:x2, c])
 
     def display_pipes(self) -> None:
         """
@@ -455,7 +531,8 @@ class FlappyBird:
             if not self.show_gameover(game):
                 break
             self.reset_variables()
-        
+
+        self.update_high_score()
         self.quit()
         print("Game Over.")
 
@@ -476,6 +553,7 @@ class FlappyBird:
         Stops the video capture and closes all the OpenCV windows.
         """
         self.capture.release()
+        #self.out.release()
         cv2.destroyAllWindows()
 
 if __name__ == '__main__':
