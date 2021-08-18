@@ -155,6 +155,7 @@ class FacePyBird(object):
         :return: Processed frame.
         :rtype: NumPy array (np.ndarray).
         """
+        frame = cv2.flip(frame, 1)
         if not self.init:
             self.height, self.width, _ = frame.shape
             self.init_dependent_vars()
@@ -173,16 +174,9 @@ class FacePyBird(object):
         """
         Loads the images of each state of the flappy bird sprite, resizes them, and returns them in a list.
         """
-        dimensions: tuple = (45, 60)
-        bird_1: np.ndarray = cv2.imread(f'./sprites/bird-1.png', -1)
-        bird_2: np.ndarray = cv2.imread(f'./sprites/bird-2.png', -1)
-        bird_3: np.ndarray = cv2.imread(f'./sprites/bird-3.png', -1)
-
-        bird_1: np.ndarray = cv2.resize(bird_1, dimensions, interpolation = cv2.INTER_AREA)
-        bird_2: np.ndarray = cv2.resize(bird_2, dimensions, interpolation = cv2.INTER_AREA)
-        bird_3: np.ndarray = cv2.resize(bird_3, dimensions, interpolation = cv2.INTER_AREA)
-
-        return [bird_1, bird_2, bird_3]
+        dimensions: tuple[int] = (45, 60)
+        birds: list[np.ndarray] = [cv2.imread(f'./sprites/bird-{i}.png', -1) for i in range(1, 4)]
+        return list(map(lambda x: cv2.resize(x, dimensions, interpolation = cv2.INTER_AREA), birds))
     
     def current_player(self) -> np.ndarray:
         """

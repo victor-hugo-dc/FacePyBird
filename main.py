@@ -11,9 +11,8 @@ if __name__ == '__main__':
             break
 
         frame: np.ndarray = capture.read()[1]
-        frame = cv2.flip(frame, 1)
 
-        facepyb.get_frame(frame)
+        frame = facepyb.get_frame(frame)
         cv2.imshow('FacePy Bird OpenCV by @victor-hugo-dc', frame)
     
     capture.release()
